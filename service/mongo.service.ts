@@ -1,4 +1,5 @@
-import { Db } from "mongodb";
+import { Db, ObjectId } from "mongodb";
+import { ISeats } from "../types/interface";
 
 
 export default class MongoService {
@@ -11,15 +12,15 @@ export default class MongoService {
         dbo: Db
     ) => {
         try {
-            const cinema = await dbo.collection(MongoService.tableName).insertOne({ seats, cinemaName });
-            return cinema.insertedId.toString() ?? null;
+            const cinema = await dbo.collection(MongoService.tableName).insertOne({ seats, cinemaName, createdAt:new Date().toISOString() });
+            return cinema.insertedId; //.toString();
         } catch (err) {
             throw err;
         }
     };
 
     public static create = async (
-        seats: any,
+        seats: ISeats[],
         dbo: Db
     ) => {
         try {
@@ -30,7 +31,7 @@ export default class MongoService {
     };
 
     public static update = async (
-        cinemaID: string,
+        cinemaID: ObjectId,
         seatNo: number,
         dbo: Db
     ) => {
@@ -46,7 +47,7 @@ export default class MongoService {
     };
 
     public static checkTicketAvailable = async (
-        cinemaID: string,
+        cinemaID: ObjectId,
         seatNo: number,
         dbo: Db
     ) => {
@@ -59,7 +60,7 @@ export default class MongoService {
     };
 
     public static findUnbookedTicket = async (
-        cinemaID: string,
+        cinemaID: ObjectId,
         dbo: Db
     ) => {
         try {

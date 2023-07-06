@@ -1,7 +1,9 @@
-import { Request, Response } from "express";
-import { Db, MongoClient } from "mongodb";
+import { Request, Response, response } from "express";
+import { Db, MongoClient, ObjectId } from "mongodb";
 import MongoService from "../service/mongo.service";
-import { STATUS } from "../types/constant";
+import { STATUS } from "../constans/status";
+import { ISeats, ResponseInterFace } from "../types/interface";
+import { MESSAGE } from "../constans/message";
 
 export default class TicketController {
     mongoService: typeof MongoService
@@ -22,20 +24,20 @@ export default class TicketController {
             console.log("Connected to mongodb...");
 
             const cinemaID = await this.mongoService.createCinema(seats, cinemaName, dbo);
-            let seatsArry: any = [];
+            let seatsArry: Array<ISeats> = [];
             for (let i = 1; i <= seats; i++) {
                 seatsArry.push({
-                    cinemaID,
+                    cinemaID: cinemaID,
                     isBooked: false,
                     seatNo: i
                 })
             }
             await this.mongoService.create(seatsArry, dbo);
-            res.status(STATUS.OK).send({ cinemaID: cinemaID });
+            res.status(STATUS.OK).send({ status: STATUS.OK, success: true, message: MESSAGE.CREATE, data: { cinemaID: cinemaID.toString() } });
 
         } catch (err) {
             console.error(`Error log ${err}`);
-            res.status(STATUS.ERROR).send(err.message);
+            res.status(STATUS.ERROR).send({ status: STATUS.ERROR, success: false, message: MESSAGE.ERROR, data: err.message });
 
         }
     }
@@ -52,17 +54,17 @@ export default class TicketController {
             const dbo: Db = client.db("cinemaDB");
             console.log("Connected to mongodb...");
 
-            let isBooked = await this.mongoService.checkTicketAvailable(cinemaID, seatNo, dbo);
+            let isBooked = await this.mongoService.checkTicketAvailable(new ObjectId(cinemaID), seatNo, dbo);
             if (isBooked) {
-                res.status(STATUS.OK).send({ Message: "Ticket already booked" });
+                res.status(STATUS.OK).send({ status: STATUS.OK, success: true, message: MESSAGE.TICKETBOOK, data: {} });
             } else {
-                await this.mongoService.update(cinemaID, seatNo, dbo)
-                res.status(STATUS.OK).send({ seatNo: seatNo });
+                await this.mongoService.update(new ObjectId(cinemaID), seatNo, dbo)
+                res.status(STATUS.OK).send({ status: STATUS.OK, success: true, data: { seatNo: seatNo } });
             }
 
         } catch (err) {
             console.error(`Error log ${err}`);
-            res.status(STATUS.ERROR).send(err.message);
+            res.status(STATUS.ERROR).send({ status: STATUS.ERROR, success: false, message: MESSAGE.ERROR, data: err.message });
 
         }
     }
@@ -79,22 +81,26 @@ export default class TicketController {
             client = await MongoClient.connect(connectionString);
             const dbo: Db = client.db("cinemaDB");
             console.log("Connected to mongodb...");
-            let seats = await this.mongoService.findUnbookedTicket(cinemaID, dbo);
+            let seats = await this.mongoService.findUnbookedTicket(new ObjectId(cinemaID), dbo);
             for (let i = 0; i < seats.length - 1; i++) {
                 if (seats[i].seatNo + 1 === seats[i + 1].seatNo) {
-                    const seat = seats.map(e => e.seatNo);
-                    res.status(STATUS.OK).send({ availableSeats: seat });
+                    const availableSeat = seats.map(e => e.seatNo);
+                    res.status(STATUS.OK).send({ status: STATUS.OK, success: true, data: { availableSeat: availableSeat } });
                     return;
                 }
             }
-            res.status(STATUS.OK).send({ message: "No consecutive seats available" });
-
+            res.status(STATUS.OK).send({ status: STATUS.OK, success: true, message: MESSAGE.CONSECUTIVE, data: {} });
         } catch (err) {
             console.error(`Error log ${err}`);
-            res.status(STATUS.ERROR).send(err.message);
+            res.status(STATUS.ERROR).send({ status: STATUS.ERROR, success: false, message: MESSAGE.ERROR, data: err.message });
 
         }
     }
 
+
+    public ResponseFunc = async (code: number, success: boolean, msg: string, data: any) => {
+        return { code: code, success: success, message: msg, data: data };
+
+    }
 
 }
